@@ -3,9 +3,9 @@
 
 #include "MyMesh.h"
 
-#if defined(ENABLE_MCP23017_ACCESS_INPUTS) && ENABLE_MCP23017_ACCESS_INPUTS == 1
-  #include "RoomServerAccessInputs.h"
-  static RoomServerAccessInputs access_inputs;
+#if defined(ENABLE_MCP23017_CONTACT_INPUTS) && ENABLE_MCP23017_CONTACT_INPUTS == 1
+  #include "RoomServerContactInputs.h"
+  static RoomServerContactInputs contact_inputs;
 #endif
 
 #ifdef ETHERNET_ENABLED
@@ -37,8 +37,8 @@ void setup() {
 
   board.begin();
 
-#if defined(ENABLE_MCP23017_ACCESS_INPUTS) && ENABLE_MCP23017_ACCESS_INPUTS == 1
-  access_inputs.begin();
+#if defined(ENABLE_MCP23017_CONTACT_INPUTS) && ENABLE_MCP23017_CONTACT_INPUTS == 1
+  contact_inputs.begin();
 #endif
 
 #ifdef HAS_EXTERNAL_WATCHDOG
@@ -157,8 +157,8 @@ void loop() {
   }
 #endif
 
-#if defined(ENABLE_MCP23017_ACCESS_INPUTS) && ENABLE_MCP23017_ACCESS_INPUTS == 1
-  access_inputs.loop(the_mesh);
+#if defined(ENABLE_MCP23017_CONTACT_INPUTS) && ENABLE_MCP23017_CONTACT_INPUTS == 1
+  contact_inputs.loop(the_mesh);
 #endif
 
   the_mesh.loop();

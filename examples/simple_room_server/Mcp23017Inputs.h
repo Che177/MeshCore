@@ -1,15 +1,10 @@
 #pragma once
 
-// MCP23017 GPIO-expander definitions for the simple room-server example.
+// Minimal MCP23017 input support for the simple room-server contact example.
 //
-// The MCP23017 shares the existing I2C bus and uses the unshifted 7-bit
-// address 0x20. This address corresponds to the MCP23017 address pins A0,
-// A1, and A2 being connected to GND.
-//
-// All 16 GPIO identifiers are declared here to establish one consistent
-// numbering scheme for current and future inputs. Declaring a pin does not
-// configure or enable it. RoomServerAccessInputs configures only the pins
-// currently used by the example.
+// The module configures selected pins as inputs with pull-ups and returns one
+// 16-bit electrical-level snapshot containing GPIOA and GPIOB. It intentionally
+// implements only the MCP23017 operations required by this example.
 
 #include <Arduino.h>
 
@@ -36,3 +31,15 @@ static constexpr uint8_t GPIO_PB6 = 14;
 static constexpr uint8_t GPIO_PB7 = 15;
 
 } // namespace Mcp23017Gpio
+
+class Mcp23017Inputs {
+  bool readRegister(uint8_t reg, uint8_t& value);
+  bool writeRegister(uint8_t reg, uint8_t value);
+  bool setRegisterBits(uint8_t reg, uint8_t bits);
+
+public:
+  bool configureInputs(uint16_t input_mask);
+  bool readSnapshot(uint16_t& snapshot);
+
+  static bool isContactActive(uint16_t snapshot, uint8_t pin);
+};
