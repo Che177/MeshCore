@@ -3,9 +3,9 @@
 
 #include "MyMesh.h"
 
-#if defined(CERT_FIELD_DEPLOYMENT) && CERT_FIELD_DEPLOYMENT == 1
-  #include "CertFieldDeploymentInputs.h"
-  static CertFieldDeploymentInputs field_inputs;
+#if defined(ENABLE_MCP23017_ACCESS_INPUTS) && ENABLE_MCP23017_ACCESS_INPUTS == 1
+  #include "RoomServerAccessInputs.h"
+  static RoomServerAccessInputs access_inputs;
 #endif
 
 #ifdef ETHERNET_ENABLED
@@ -37,8 +37,8 @@ void setup() {
 
   board.begin();
 
-#if defined(CERT_FIELD_DEPLOYMENT) && CERT_FIELD_DEPLOYMENT == 1
-  field_inputs.begin();
+#if defined(ENABLE_MCP23017_ACCESS_INPUTS) && ENABLE_MCP23017_ACCESS_INPUTS == 1
+  access_inputs.begin();
 #endif
 
 #ifdef HAS_EXTERNAL_WATCHDOG
@@ -157,8 +157,8 @@ void loop() {
   }
 #endif
 
-#if defined(CERT_FIELD_DEPLOYMENT) && CERT_FIELD_DEPLOYMENT == 1
-  field_inputs.loop(the_mesh);
+#if defined(ENABLE_MCP23017_ACCESS_INPUTS) && ENABLE_MCP23017_ACCESS_INPUTS == 1
+  access_inputs.loop(the_mesh);
 #endif
 
   the_mesh.loop();

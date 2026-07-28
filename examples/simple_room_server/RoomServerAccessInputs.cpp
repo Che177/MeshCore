@@ -1,16 +1,36 @@
 #include <Arduino.h>
 
-#if defined(CERT_FIELD_DEPLOYMENT) && CERT_FIELD_DEPLOYMENT == 1
+#if defined(ENABLE_MCP23017_ACCESS_INPUTS) && ENABLE_MCP23017_ACCESS_INPUTS == 1
 
-#include "CertFieldDeploymentInputs.h"
+// This is application-level example behavior, not a general MCP23017 driver.
+// It directly accesses only the MCP23017 registers needed to configure and
+// read the three active-low inputs used by the simple room server.
+//
+// Current assignments:
+//   PA0 - maintained service-mode switch
+//   PB1 - side-door contact
+//   PB2 - rear-door contact
+//
+// PB3 and PB4 are wired but intentionally have no behavior yet. The remaining
+// declared MCP23017 pins are also unused.
+//
+// Active-low electrical interpretation is centralized in
+// readLogicalActive(): an input connected to GND is logically active.
+//
+// Room messages are submitted through MyMesh::addSystemPost(), which is the
+// existing system-post path used by `room.post`. This example does not
+// implement separate room storage, message authorship, timestamps, persistence,
+// or broadcast behavior.
+
+#include "RoomServerAccessInputs.h"
 #include <Wire.h>
 
-#include "CertFieldDeploymentHardware.h"
+#include "Mcp23017Gpio.h"
 #include "MyMesh.h"
 
 namespace {
 
-using namespace CertFieldDeploymentHardware;
+using namespace Mcp23017Gpio;
 
 static constexpr uint8_t MCP23017_IODIRA = 0x00;
 static constexpr uint8_t MCP23017_IODIRB = 0x01;
@@ -35,17 +55,17 @@ static constexpr DoorInputConfig DOOR_INPUTS[] = {
 static constexpr size_t DOOR_INPUT_COUNT = sizeof(DOOR_INPUTS) / sizeof(DOOR_INPUTS[0]);
 
 bool readRegister(uint8_t reg, uint8_t& value) {
-  Wire.beginTransmission(GPIO_EXPANDER_ADDRESS);
+  Wire.beginTransmission(I2C_ADDRESS);
   Wire.write(reg);
   if (Wire.endTransmission(false) != 0) return false;
 
-  if (Wire.requestFrom(GPIO_EXPANDER_ADDRESS, static_cast<uint8_t>(1)) != 1) return false;
+  if (Wire.requestFrom(I2C_ADDRESS, static_cast<uint8_t>(1)) != 1) return false;
   value = Wire.read();
   return true;
 }
 
 bool writeRegister(uint8_t reg, uint8_t value) {
-  Wire.beginTransmission(GPIO_EXPANDER_ADDRESS);
+  Wire.beginTransmission(I2C_ADDRESS);
   Wire.write(reg);
   Wire.write(value);
   return Wire.endTransmission() == 0;
@@ -58,10 +78,10 @@ bool setRegisterBits(uint8_t reg, uint8_t bits) {
 
 } // namespace
 
-CertFieldDeploymentInputs::CertFieldDeploymentInputs()
+RoomServerAccessInputs::RoomServerAccessInputs()
   : initialized(false), service_mode_enabled(false), service_switch{}, door_states{} {}
 
-bool CertFieldDeploymentInputs::configureExpander() {
+bool RoomServerAccessInputs::configureExpander() {
   const uint8_t port_a_inputs = 1U << (SERVICE_SWITCH_PIN & 7);
   const uint8_t port_b_inputs =
     (1U << (DOOR_INPUTS[0].pin & 7)) |
@@ -73,7 +93,7 @@ bool CertFieldDeploymentInputs::configureExpander() {
          setRegisterBits(MCP23017_GPPUB, port_b_inputs);
 }
 
-bool CertFieldDeploymentInputs::readLogicalActive(uint8_t pin, bool& active) {
+bool RoomServerAccessInputs::readLogicalActive(uint8_t pin, bool& active) {
   const uint8_t gpio_register = pin < 8 ? MCP23017_GPIOA : MCP23017_GPIOB;
   uint8_t port_state;
   if (!readRegister(gpio_register, port_state)) return false;
@@ -83,7 +103,7 @@ bool CertFieldDeploymentInputs::readLogicalActive(uint8_t pin, bool& active) {
   return true;
 }
 
-bool CertFieldDeploymentInputs::initializeInput(uint8_t pin, DebouncedInput& input) {
+bool RoomServerAccessInputs::initializeInput(uint8_t pin, DebouncedInput& input) {
   bool active;
   if (!readLogicalActive(pin, active)) return false;
 
@@ -93,7 +113,7 @@ bool CertFieldDeploymentInputs::initializeInput(uint8_t pin, DebouncedInput& inp
   return true;
 }
 
-bool CertFieldDeploymentInputs::updateInput(
+bool RoomServerAccessInputs::updateInput(
   uint8_t pin, DebouncedInput& input, uint32_t now, bool& changed) {
   changed = false;
 
@@ -114,13 +134,7 @@ bool CertFieldDeploymentInputs::updateInput(
   return true;
 }
 
-void CertFieldDeploymentInputs::initializeDoorStates() {
-  for (size_t i = 0; i < DOOR_INPUT_COUNT; i++) {
-    initializeInput(DOOR_INPUTS[i].pin, door_states[i]);
-  }
-}
-
-bool CertFieldDeploymentInputs::begin() {
+bool RoomServerAccessInputs::begin() {
   if (!configureExpander() ||
       !initializeInput(SERVICE_SWITCH_PIN, service_switch)) {
     Serial.println("MCP23017 field inputs unavailable");
@@ -136,11 +150,11 @@ bool CertFieldDeploymentInputs::begin() {
 
   service_mode_enabled = service_switch.stable_state;
   initialized = true;
-  Serial.printf("MCP23017 field inputs ready at 0x%02X\n", GPIO_EXPANDER_ADDRESS);
+  Serial.printf("MCP23017 access inputs ready at 0x%02X\n", I2C_ADDRESS);
   return true;
 }
 
-void CertFieldDeploymentInputs::loop(MyMesh& mesh) {
+void RoomServerAccessInputs::loop(MyMesh& mesh) {
   if (!initialized) return;
 
   const uint32_t now = millis();
@@ -151,11 +165,6 @@ void CertFieldDeploymentInputs::loop(MyMesh& mesh) {
     service_mode_enabled = service_switch.stable_state;
     mesh.addSystemPost(service_mode_enabled ? "Service mode enabled" : "Service mode disabled");
 
-    if (!service_mode_enabled) {
-      // Resynchronize at service exit so transitions made during service cannot
-      // appear later as stale door events.
-      initializeDoorStates();
-    }
   }
 
   for (size_t i = 0; i < DOOR_INPUT_COUNT; i++) {
