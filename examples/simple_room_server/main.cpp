@@ -3,6 +3,11 @@
 
 #include "MyMesh.h"
 
+#if defined(CERT_FIELD_DEPLOYMENT) && CERT_FIELD_DEPLOYMENT == 1
+  #include "CertFieldDeploymentInputs.h"
+  static CertFieldDeploymentInputs field_inputs;
+#endif
+
 #ifdef ETHERNET_ENABLED
   #define ETHERNET_CLI_BANNER "MeshCore Room Server CLI"
   #include <helpers/nrf52/EthernetCLI.h>
@@ -31,6 +36,10 @@ void setup() {
   delay(1000);
 
   board.begin();
+
+#if defined(CERT_FIELD_DEPLOYMENT) && CERT_FIELD_DEPLOYMENT == 1
+  field_inputs.begin();
+#endif
 
 #ifdef HAS_EXTERNAL_WATCHDOG
   external_watchdog.begin();
@@ -146,6 +155,10 @@ void loop() {
     ethernet_send_reply(reply);
     ethernet_command[0] = 0;
   }
+#endif
+
+#if defined(CERT_FIELD_DEPLOYMENT) && CERT_FIELD_DEPLOYMENT == 1
+  field_inputs.loop(the_mesh);
 #endif
 
   the_mesh.loop();
