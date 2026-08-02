@@ -22,9 +22,29 @@ static constexpr uint8_t MCP23017_GPIOB = 0x13;
 bool Mcp23017Inputs::readRegister(uint8_t reg, uint8_t& value) {
   Wire.beginTransmission(I2C_ADDRESS);
   Wire.write(reg);
-  if (Wire.endTransmission(false) != 0) return false;
+  const uint8_t select_error = Wire.endTransmission(false);
+  if (select_error != 0) {
+#if defined(ENABLE_MCP23017_CONTACT_DEBUG) && ENABLE_MCP23017_CONTACT_DEBUG == 1
+    Serial.printf(
+      "MCP23017 select register 0x%02X failed: error=%u\n",
+      reg,
+      select_error);
+#endif
+    return false;
+  }
 
-  if (Wire.requestFrom(I2C_ADDRESS, static_cast<uint8_t>(1)) != 1) return false;
+  const uint8_t received =
+    Wire.requestFrom(I2C_ADDRESS, static_cast<uint8_t>(1));
+  if (received != 1) {
+#if defined(ENABLE_MCP23017_CONTACT_DEBUG) && ENABLE_MCP23017_CONTACT_DEBUG == 1
+    Serial.printf(
+      "MCP23017 read register 0x%02X failed: received=%u\n",
+      reg,
+      received);
+#endif
+    return false;
+  }
+
   value = Wire.read();
   return true;
 }

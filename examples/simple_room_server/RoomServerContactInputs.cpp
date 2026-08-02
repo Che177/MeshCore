@@ -5,6 +5,7 @@
 #include "RoomServerContactInputs.h"
 
 #include "MyMesh.h"
+#include <Wire.h>
 
 namespace {
 
@@ -19,6 +20,34 @@ static constexpr uint32_t DIAGNOSTIC_INTERVAL_MS = 30000;
 bool timeReached(uint32_t now, uint32_t target) {
   return static_cast<int32_t>(now - target) >= 0;
 }
+
+#if defined(ENABLE_MCP23017_CONTACT_DEBUG) && ENABLE_MCP23017_CONTACT_DEBUG == 1
+
+static void scanI2cBusOnce() {
+  static bool already_scanned = false;
+  if (already_scanned) return;
+  already_scanned = true;
+
+  Serial.println("MCP23017 debug: scanning I2C bus");
+
+  uint8_t found = 0;
+
+  for (uint8_t address = 1; address < 127; ++address) {
+    Wire.beginTransmission(address);
+    const uint8_t error = Wire.endTransmission();
+
+    if (error == 0) {
+      Serial.printf("I2C device found at 0x%02X\n", address);
+      ++found;
+    } else if (error == 4) {
+      Serial.printf("Unknown I2C error at 0x%02X\n", address);
+    }
+  }
+
+  Serial.printf("I2C scan complete: %u device(s)\n", found);
+}
+
+#endif
 
 } // namespace
 
@@ -70,6 +99,10 @@ bool RoomServerContactInputs::updateInput(
 }
 
 bool RoomServerContactInputs::initialize(uint32_t now) {
+#if defined(ENABLE_MCP23017_CONTACT_DEBUG) && ENABLE_MCP23017_CONTACT_DEBUG == 1
+  scanI2cBusOnce();
+#endif
+
   uint16_t input_mask =
     static_cast<uint16_t>(1) << SERVICE_SWITCH_PIN;
   for (size_t i = 0; i < contactInputCount(); i++) {
